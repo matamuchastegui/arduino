@@ -1,24 +1,30 @@
 #include <SoftwareSerial.h>
 SoftwareSerial BT1(0, 1); // RX | TX
-int IN3 = 8;
-int IN4 = 9;
-int topLimit = 7; // Fin de carrera
-int bottomLimit = 6; // Fin de carrera
+const int IN3 = A4;//8; // Salidas driver motor
+const int IN4 = A5;//9; // Salidas driver motor
+const int pUp = 5;
+const int pDown = 6;
+const int topLimit = 7; // Fin de carrera
+const int bottomLimit = 8; // Fin de carrera
 char state = 's';
+int t = 100; // Tiempo que el motor sube/baja
 long int tiempo,inicio;
-File wifi;
-File datos;
-File logger;
-char* ssid = "SourceIdea";
-char* password = "develop";
+//File wifi;
+//File datos;
+//File logger;
+//char* ssid = "SourceIdea";
+//char* password = "develop";
+//https://www.youtube.com/watch?v=GilBJy5RDlo Guardar datos en memoria EEPROM
 void setup()
 {
   pinMode (IN4, OUTPUT);    // Input4 conectada al pin 4
   pinMode (IN3, OUTPUT);    // Input3 conectada al pin 5
+  //pinMode(0, OUTPUT);
+  //pinMode(1, OUTPUT);
   Serial.begin(9600);
-  pinMode(53, OUTPUT); // Cambiar por 10 en ATMEGA328
-  digitalWrite(53, HIGH); // Cambiar por 10 en ATMEGA328
-  while (!Serial) {
+  pinMode(10, OUTPUT); // Cambiar por 10 en ATMEGA328 53 MEGA
+  digitalWrite(10, HIGH); // Cambiar por 10 en ATMEGA328 53 MEGA
+  /*while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
   Serial.print("Initializing SD card...");
@@ -28,10 +34,8 @@ void setup()
   }
   Serial.println("initialization SD done.");
   wifi = SD.open("wifi.txt");
-  if (wifi) {
+  if (wifi && wifi.size() > 0) {
     Serial.println("Abriendo wifi.txt");
-    if(wifi.size()==0)
-      break;
     // read from the file until there's nothing else in it:
     while (myFile.available()) {
       Serial.write(myFile.read());
@@ -40,31 +44,36 @@ void setup()
     myFile.close();
   } else {
     // if the file didn't open, print an error:
-    Serial.println("faia test.txt");
-  }
+    Serial.println("falla test.txt");
+  }*/
   Serial.println("READY......");
 }
 
 void up(int d) {
-  Serial.println("SUBIENDO...");
-  Serial.print('S');
-  digitalWrite (IN4, HIGH);
-  digitalWrite (IN3, LOW);
+  if(digitalRead(topLimit) == LOW){ 
+    Serial.println("SUBIENDO...");
+    Serial.print('S');
+    digitalWrite (IN4, HIGH);
+    digitalWrite (IN3, LOW);
+  }
   delay(d);
 }
 void down(int d) {
-  Serial.println("BAJANDO...");
-  Serial.print('K');
-  digitalWrite (IN4, LOW);
-  digitalWrite (IN3, HIGH);
+  if(digitalRead(bottomLimit) == LOW){ 
+    Serial.println("BAJANDO...");
+    Serial.print('K');
+    digitalWrite (IN4, LOW);
+    digitalWrite (IN3, HIGH);
+  }
   delay(d);
 }
 void Stop() {
-  Serial.println("STOP");
-  pinMode(0, OUTPUT);
-  pinMode(1, OUTPUT);
+  Serial.print("STOP");
   digitalWrite (IN4, LOW);
   digitalWrite (IN3, LOW);
+}
+boolean action(){
+  return Serial.available() || digitalRead(pUp) == HIGH || digitalRead(pDown) == HIGH;
 }
 void loop()
 {
@@ -77,7 +86,7 @@ void loop()
       case 'u':
         inicio = millis();
         do{
-          up(100);
+          up(t);
           //Serial.flush();
           if(Serial.available() && Serial.read() == 'u'){
             // Elimina datos si existen 
@@ -89,19 +98,19 @@ void loop()
           }else if(Serial.available()){
             break;
           }
-          tiempo = millis() - inicio;
-          posicion = posicion ; //+-*/% calculos tiempos
+          /*tiempo = millis() - inicio;
+          posicion = posicion ; //+ - / *% calculos tiempos
           aceleracion = 
           velocidad = 
-          timeToTop = timeToTop - (tiempo * );
-        }while (!Serial.available() || digitalRead(topLimit)!=HIGH || ){
+          timeToTop = timeToTop - (tiempo * );*/
+        }while (!Serial.available() && digitalRead(pUp) == LOW && digitalRead(pDown) == LOW && digitalRead(topLimit) == LOW );
         Serial.print("Out of bucle");
         Stop();
-        dato = trash; // Esto no hace nada, es para que compile.
+        //dato = trash; // Esto no hace nada, es para que compile.
         break;
       case 'd':
         do{  
-          down(100);
+          down(t);
           if(Serial.available() && Serial.read() == 'd'){
             Serial.print("BASURA____");
             while(Serial.available()){
@@ -112,7 +121,7 @@ void loop()
             Serial.print("____-/-BREAK-/-____");
             break;
           }
-        }while (!Serial.available()); // || digitalRead(bottomLimit)!=HIGH){
+        }while (!Serial.available() && digitalRead(pUp) == LOW && digitalRead(pDown) == LOW  && digitalRead(bottomLimit) == LOW);
         Serial.print("Out of bucle");
         Stop();
         break;
@@ -136,6 +145,36 @@ void loop()
         delay(500);
         break;
     }
+  }else{
+    if(digitalRead(pUp)==HIGH){
+      delay(500);
+      do{
+        up(t);
+      }while(!action() && digitalRead(topLimit) == LOW );
+    }else if (digitalRead(pDown)==HIGH){
+      delay(500);
+      do{
+        down(t);
+        if(digitalRead(bottomLimit) == HIGH){
+          Serial.print(digitalRead(bottomLimit) == LOW);
+          Serial.print(!action());
+          Serial.println("************************************bottomlimit*********************************************");
+          
+        }
+        if(Serial.available() || digitalRead(pUp) == HIGH || digitalRead(pDown) == HIGH){
+          Serial.print("digitalRead(pUp)");
+          Serial.println(digitalRead(pUp));
+          Serial.print("!Serial.available()");
+          Serial.println(!Serial.available());
+          Serial.print("digitalRead(pDown)");
+          Serial.println(digitalRead(pDown));
+          
+        }
+      }while(!action() && digitalRead(bottomLimit) == LOW );
+      Serial.println("TERMINÓ DE BAJAR");
+    }
+    Stop();
+    delay(100);
   }
   delay(5);
 }
